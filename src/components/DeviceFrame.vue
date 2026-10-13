@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
+import { invoke } from "@tauri-apps/api/core";
 import type { DeviceView } from "../types";
 import { DEVICE_GROUPS, findDevice } from "../constants/devices";
 
 const props = defineProps<{
   view: DeviceView;
-  index: number;
   scale: number;
   active: boolean;
 }>();
@@ -45,6 +45,93 @@ const sandboxValue = computed(() =>
     : "allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads",
 );
 
+const iframeRef = ref<HTMLIFrameElement | null>(null);
+const documentTitle = ref("");
+const titleError = ref("");
+let titleRequestId = 0;
+
+function debugLog(message: string) {
+  void invoke("debug_log", { message }).catch(() => undefined);
+}
+
+/** 同源页面可直接读取运行时的 document.title（含 SPA 动态设置的标题） */
+function readSameOriginTitle(): string {
+  try {
+    return iframeRef.value?.contentDocument?.title?.trim() ?? "";
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * 地址变化或刷新时主动解析网页标题，不依赖 iframe 的 load 时序：
+ * 同源页面直接读取 document.title；跨源页面受同源策略限制，
+ * 交给 Rust 侧代理请求并解析 <title>。
+ */
+async function resolveTitle() {
+  const url = props.view.url;
+  documentTitle.value = "";
+  titleError.value = "";
+
+  const sameOrigin = readSameOriginTitle();
+  if (sameOrigin) {
+    debugLog(`same-origin title="${sameOrigin}"`);
+    documentTitle.value = sameOrigin;
+    return;
+  }
+  if (!/^https?:\/\//i.test(url)) return;
+
+  const requestId = (titleRequestId += 1);
+  debugLog(`request title url=${url} id=${requestId}`);
+  try {
+    const title = await invoke<string>("fetch_page_title", { url });
+    debugLog(`invoke ok title="${title}" request=${requestId} current=${titleRequestId}`);
+    if (requestId !== titleRequestId) return;
+    if (title) {
+      documentTitle.value = title;
+      debugLog(`applied -> siteTitle="${siteTitle.value}"`);
+    } else {
+      titleError.value = "页面没有 <title>";
+    }
+  } catch (error) {
+    titleError.value = error instanceof Error ? error.message : String(error);
+    debugLog(`invoke failed: ${String(error)}`);
+  }
+}
+
+/** iframe 加载完成后再读一次：同源页面的 SPA 运行时标题可能此时才确定 */
+function onIframeLoad() {
+  const sameOrigin = readSameOriginTitle();
+  if (sameOrigin && sameOrigin !== documentTitle.value) {
+    documentTitle.value = sameOrigin;
+    titleError.value = "";
+    debugLog(`load override title="${sameOrigin}"`);
+  }
+}
+
+watch(
+  () => [props.view.url, props.view.reloadToken] as const,
+  () => {
+    titleRequestId += 1;
+    void resolveTitle();
+  },
+  { immediate: true },
+);
+
+const siteTitle = computed(() => {
+  if (documentTitle.value) return documentTitle.value;
+  const url = props.view.url;
+  if (!url || /^(about|data|blob|file):/i.test(url)) return props.view.label;
+  try {
+    const parsed = new URL(url);
+    return parsed.port && parsed.port !== "80" && parsed.port !== "443"
+      ? `${parsed.hostname}:${parsed.port}`
+      : parsed.hostname;
+  } catch {
+    return props.view.label;
+  }
+});
+
 function changeDevice(event: Event) {
   emit("update", { deviceId: (event.target as HTMLSelectElement).value });
 }
@@ -70,34 +157,43 @@ async function openExternal() {
 <template>
   <article class="device-frame" :class="{ active, incognito: view.incognito }" @mousedown="emit('activate')">
     <header class="frame-header">
-      <span class="index-badge" :title="view.label">{{ index }}</span>
-
-      <div class="frame-meta">
-        <span class="frame-title">{{ view.label }}</span>
+      <div class="header-row header-row-top">
+        <span class="frame-title" :title="`${siteTitle} — ${view.url}`">{{ siteTitle }}</span>
+        <span v-if="titleError" class="title-warning" :title="`标题获取失败：${titleError}`">!</span>
         <span v-if="view.incognito" class="badge">无痕</span>
       </div>
 
-      <select class="frame-select" :value="view.deviceId" title="切换机型分辨率" @change="changeDevice" @mousedown.stop="emit('activate')">
-        <optgroup v-for="group in DEVICE_GROUPS" :key="group.name" :label="group.name">
-          <option v-for="preset in group.devices" :key="preset.id" :value="preset.id">
-            {{ preset.name }} · {{ preset.width }}×{{ preset.height }}
-          </option>
-        </optgroup>
-      </select>
+      <div class="header-row header-row-bottom">
+        <div class="header-left">
+          <select
+            class="frame-select"
+            :value="view.deviceId"
+            title="切换机型分辨率"
+            @change="changeDevice"
+            @mousedown.stop="emit('activate')"
+          >
+            <optgroup v-for="group in DEVICE_GROUPS" :key="group.name" :label="group.name">
+              <option v-for="preset in group.devices" :key="preset.id" :value="preset.id">
+                {{ preset.name }} · {{ preset.width }}×{{ preset.height }}
+              </option>
+            </optgroup>
+          </select>
+          <span class="size-tag">{{ logicalSize.width }}×{{ logicalSize.height }}</span>
+        </div>
 
-      <span class="size-tag">{{ logicalSize.width }}×{{ logicalSize.height }}</span>
-
-      <div class="frame-actions">
-        <button class="icon-btn" title="旋转屏幕" @mousedown.stop="emit('activate')" @click="toggleOrientation">⟲</button>
-        <button class="icon-btn" title="重新加载" @mousedown.stop="emit('activate')" @click="reload">⟳</button>
-        <button class="icon-btn" title="在默认浏览器中打开" @mousedown.stop="emit('activate')" @click="openExternal">↗</button>
-        <button class="icon-btn danger" title="关闭窗口" @mousedown.stop="emit('activate')" @click="emit('close')">✕</button>
+        <div class="header-right">
+          <button class="icon-btn" title="旋转屏幕" @mousedown.stop="emit('activate')" @click="toggleOrientation">⟲</button>
+          <button class="icon-btn" title="刷新" @mousedown.stop="emit('activate')" @click="reload">⟳</button>
+          <button class="icon-btn" title="在默认浏览器中打开" @mousedown.stop="emit('activate')" @click="openExternal">↗</button>
+          <button class="icon-btn danger" title="关闭" @mousedown.stop="emit('activate')" @click="emit('close')">✕</button>
+        </div>
       </div>
     </header>
 
     <div class="frame-viewport" :style="viewportStyle">
       <div class="frame-screen" :style="screenStyle">
         <iframe
+          ref="iframeRef"
           :key="`${view.id}-${view.reloadToken}`"
           class="frame-iframe"
           :data-view-id="view.id"
@@ -105,6 +201,7 @@ async function openExternal() {
           :sandbox="sandboxValue"
           referrerpolicy="no-referrer-when-downgrade"
           allow="geolocation; camera; microphone; fullscreen; accelerometer; gyroscope; clipboard-write"
+          @load="onIframeLoad"
         />
       </div>
     </div>
@@ -164,10 +261,9 @@ async function openExternal() {
 
 .frame-header {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 36px;
-  padding: 0 8px;
+  flex-direction: column;
+  gap: 5px;
+  padding: 7px 9px;
   background: var(--frame-chrome);
   border-bottom: 1px solid var(--frame-border);
 }
@@ -176,48 +272,44 @@ async function openExternal() {
   background: var(--frame-chrome-active);
 }
 
-.index-badge {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 18px;
-  height: 18px;
-  border-radius: 6px;
-  background: var(--bg-0);
-  border: 1px solid var(--border);
-  color: var(--fg-dim);
-  font-size: 10px;
-  font-weight: 700;
-}
-
-.active .index-badge {
-  border-color: rgba(76, 141, 255, 0.6);
-  color: #b9d2ff;
-}
-
-.incognito.active .index-badge {
-  border-color: rgba(124, 92, 255, 0.6);
-  color: #cbbcff;
-}
-
-.frame-meta {
+.header-row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
 }
 
+.header-row-top {
+  height: 20px;
+}
+
 .frame-title {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 600;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
+.title-warning {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: rgba(255, 176, 76, 0.18);
+  color: #ffb04c;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: help;
+}
+
 .badge {
   flex: none;
-  padding: 1px 6px;
+  padding: 1px 7px;
   border-radius: 999px;
   background: rgba(124, 92, 255, 0.24);
   color: #cbbcff;
@@ -225,12 +317,27 @@ async function openExternal() {
   font-weight: 600;
 }
 
+.header-row-bottom {
+  justify-content: space-between;
+}
+
+.header-left,
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.header-right {
+  flex: none;
+}
+
 .frame-select {
-  max-width: 120px;
+  max-width: 118px;
   height: 22px;
-  margin-left: auto;
   padding: 0 4px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--frame-border);
   border-radius: 6px;
   background: var(--bg-0);
   color: var(--fg-dim);
@@ -244,11 +351,6 @@ async function openExternal() {
   font-size: 11px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-}
-
-.frame-actions {
-  display: flex;
-  gap: 2px;
 }
 
 .icon-btn {
@@ -340,7 +442,7 @@ async function openExternal() {
 .footer-scale {
   flex: none;
   padding: 1px 6px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--frame-border);
   border-radius: 999px;
   color: var(--fg-dim);
   font-variant-numeric: tabular-nums;

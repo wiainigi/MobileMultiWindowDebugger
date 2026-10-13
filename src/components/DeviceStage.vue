@@ -9,8 +9,8 @@ import DeviceFrame from "./DeviceFrame.vue";
 const PADDING = 24;
 /** 窗口之间的间距 */
 const GAP = 18;
-/** 单个窗口除屏幕外的固定高度：标题栏 + 页脚 + 边框 */
-const FRAME_CHROME_HEIGHT = 68;
+/** 单个窗口除屏幕外的固定高度：两行标题栏 + 页脚 + 边框 */
+const FRAME_CHROME_HEIGHT = 92;
 /** 窗口卡片的最小可读宽度，缩放到此为止 */
 const MIN_FRAME_WIDTH = 224;
 
@@ -117,10 +117,9 @@ watch(scale, (value) => {
       :style="{ padding: `${PADDING}px`, gap: `${GAP}px` }"
     >
       <DeviceFrame
-        v-for="(view, index) in views"
+        v-for="view in views"
         :key="view.id"
         :view="view"
-        :index="index + 1"
         :scale="scale"
         :active="view.id === activeId"
         @activate="deviceManager.setActive(view.id)"
