@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import type { DeviceView } from "../types";
+import { DEFAULT_URL } from "../composables/useDeviceManager";
 import { DEVICE_GROUPS, findDevice } from "../constants/devices";
 
 const props = defineProps<{
@@ -72,6 +73,8 @@ const targetOrigin = computed(() => {
  */
 const renderUrl = computed(() => {
   if (!props.view.incognito) return props.view.url;
+  // 内置相对页面无需代理，直接加载
+  if (!targetOrigin.value) return props.view.url;
   if (proxyPort.value === null) return "";
   try {
     const parsed = new URL(props.view.url);
@@ -202,7 +205,12 @@ watch(
 const siteTitle = computed(() => {
   if (documentTitle.value) return documentTitle.value;
   const url = props.view.url;
-  if (!url || /^(about|data|blob|file):/i.test(url)) return props.view.label;
+  if (!url) return props.view.label;
+  // 相对路径指向项目内置页面
+  if (!/^[a-z][a-z0-9+.-]*:/i.test(url)) {
+    return url === DEFAULT_URL ? "默认页" : url;
+  }
+  if (/^(about|data|blob|file):/i.test(url)) return props.view.label;
   try {
     const parsed = new URL(url);
     return parsed.port && parsed.port !== "80" && parsed.port !== "443"

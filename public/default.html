@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>默认页</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: "Inter", "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background:
+          radial-gradient(circle at 20% 12%, rgba(76, 141, 255, 0.16), transparent 45%),
+          radial-gradient(circle at 82% 88%, rgba(124, 92, 255, 0.18), transparent 45%),
+          #0b0f16;
+        color: #e6edf7;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .card {
+        width: 100%;
+        max-width: 420px;
+        padding: 26px 22px;
+        border: 1px solid #26314a;
+        border-radius: 16px;
+        background: rgba(22, 31, 46, 0.72);
+        box-shadow: 0 18px 44px rgba(2, 5, 12, 0.55);
+        text-align: center;
+      }
+
+      .logo {
+        display: grid;
+        place-items: center;
+        width: 54px;
+        height: 54px;
+        margin: 0 auto 14px;
+        border-radius: 16px;
+        background: linear-gradient(135deg, #4c8dff, #7c5cff);
+        color: #fff;
+        font-size: 24px;
+        box-shadow: 0 10px 26px rgba(76, 141, 255, 0.35);
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: 18px;
+        font-weight: 600;
+      }
+
+      .subtitle {
+        margin: 0 0 18px;
+        color: #b6c2d6;
+        font-size: 13px;
+        line-height: 1.75;
+      }
+
+      ul {
+        margin: 0;
+        padding: 14px 16px;
+        border: 1px solid #26314a;
+        border-radius: 12px;
+        background: rgba(11, 15, 22, 0.7);
+        list-style: none;
+        text-align: left;
+      }
+
+      li {
+        position: relative;
+        margin: 8px 0;
+        padding-left: 16px;
+        color: #b6c2d6;
+        font-size: 12px;
+        line-height: 1.7;
+      }
+
+      li:first-child {
+        margin-top: 0;
+      }
+
+      li:last-child {
+        margin-bottom: 0;
+      }
+
+      li::before {
+        content: "";
+        position: absolute;
+        top: 8px;
+        left: 2px;
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: #4c8dff;
+      }
+
+      .footer {
+        margin-top: 16px;
+        color: #7d8aa3;
+        font-size: 11px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <div class="logo">◈</div>
+      <h1>默认页</h1>
+      <p class="subtitle">
+        这是 MobileMultiWindowDebugger 的内置页面。<br />
+        在上方地址栏输入目标网址并回车，即可在当前窗口加载页面。
+      </p>
+      <ul>
+        <li>窗口标题栏可切换机型分辨率与横竖屏</li>
+        <li>点击「+ 新建无痕窗口」可并排开启独立会话</li>
+        <li>无痕窗口各自拥有独立的 Cookie 与本地存储</li>
+        <li>菜单栏右侧可保存、更新与切换工作区</li>
+      </ul>
+      <div class="footer">MobileMultiWindowDebugger</div>
+    </main>
+  </body>
+</html>

@@ -4,7 +4,8 @@ import { DEFAULT_DEVICE_ID } from "../constants/devices";
 
 export type LayoutMode = "row" | "wrap";
 
-export const DEFAULT_URL = "https://example.com";
+/** 项目内置默认页（相对路径，开发与打包后均与主界面同源） */
+export const DEFAULT_URL = "default.html";
 
 /**
  * 将用户输入补全为可导航的 URL。
@@ -15,6 +16,8 @@ export function normalizeUrl(input: string): string {
   if (/^[a-z][a-z0-9+.-]*:\/\//i.test(raw)) return raw;
   if (/^(about|data|file|blob):/i.test(raw)) return raw;
   if (raw.startsWith("//")) return `https:${raw}`;
+  // 内置相对页面，例如 default.html、pages/home.html
+  if (/^[a-z0-9_\-./]+\.html?(\?[^\s]*)?(#[^\s]*)?$/i.test(raw)) return raw;
   if (/^localhost(:|\/|$)/i.test(raw) || /^127\.0\.0\.1(:|\/|$)/.test(raw) || /:\d{2,5}$/.test(raw)) {
     return `http://${raw}`;
   }
@@ -68,7 +71,8 @@ function createDeviceManager() {
   }): DeviceView {
     sequence += 1;
     const incognito = options?.incognito ?? false;
-    const url = normalizeUrl(options?.url ?? address.value ?? DEFAULT_URL);
+    // 新窗口一律从内置默认页开始，不继承当前地址
+    const url = normalizeUrl(options?.url ?? DEFAULT_URL);
     const view: DeviceView = {
       id: `view-${sequence}`,
       label: options?.label ?? (incognito ? `无痕窗口 ${incognitoCount.value + 1}` : "主窗口"),
@@ -233,7 +237,8 @@ function createDeviceManager() {
   function resetToInitial() {
     views.value = [];
     activeId.value = "";
-    createView({ incognito: false, label: "初始窗口" });
+    address.value = DEFAULT_URL;
+    createView({ incognito: false, label: "初始窗口", url: DEFAULT_URL });
   }
 
   return {
