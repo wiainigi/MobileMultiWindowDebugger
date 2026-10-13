@@ -1,0 +1,52 @@
+:root {
+  --bg-0: #0b0f16;
+  --bg-1: #111826;
+  --bg-2: #161f2e;
+  --bg-3: #1d2739;
+  --bg-hover: #253250;
+  --border: #26314a;
+  --fg: #e6edf7;
+  --fg-dim: #b6c2d6;
+  --fg-muted: #7d8aa3;
+  --accent: #4c8dff;
+  --accent-2: #7c5cff;
+
+  color-scheme: dark;
+  font-family: "Inter", "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  font-size: 14px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg-0);
+  color: var(--fg);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: #2c3955;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
