@@ -1,5 +1,5 @@
 import { computed, ref, watch } from "vue";
-import type { DeviceView, Orientation } from "../types";
+import type { DeviceView, Orientation, WindowSnapshot } from "../types";
 import { DEFAULT_DEVICE_ID } from "../constants/devices";
 
 export type LayoutMode = "row" | "wrap";
@@ -192,6 +192,50 @@ function createDeviceManager() {
     fitToStage.value = !fitToStage.value;
   }
 
+  /** 导出当前所有窗口的布局快照，用于保存工作区 */
+  function snapshot(): WindowSnapshot[] {
+    return views.value.map((view) => ({
+      label: view.label,
+      incognito: view.incognito,
+      url: view.url,
+      deviceId: view.deviceId,
+      orientation: view.orientation,
+      history: [...view.history],
+      historyIndex: view.historyIndex,
+    }));
+  }
+
+  /** 用工作区快照替换当前全部窗口 */
+  function restore(snapshots: WindowSnapshot[]) {
+    views.value = snapshots.map((item) => {
+      sequence += 1;
+      const url = normalizeUrl(item.url) || DEFAULT_URL;
+      const history = item.history.length ? [...item.history] : [url];
+      return {
+        id: `view-${sequence}`,
+        label: item.label,
+        incognito: item.incognito,
+        url,
+        deviceId: item.deviceId,
+        orientation: item.orientation,
+        reloadToken: 0,
+        history,
+        historyIndex: Math.min(Math.max(item.historyIndex, 0), history.length - 1),
+      };
+    });
+
+    const first = views.value[0];
+    activeId.value = first?.id ?? "";
+    address.value = first?.url ?? DEFAULT_URL;
+  }
+
+  /** 恢复成刚启动时的样子：一个初始窗口 */
+  function resetToInitial() {
+    views.value = [];
+    activeId.value = "";
+    createView({ incognito: false, label: "初始窗口" });
+  }
+
   return {
     views,
     activeId,
@@ -220,6 +264,9 @@ function createDeviceManager() {
     resetScale,
     toggleLayout,
     toggleFit,
+    snapshot,
+    restore,
+    resetToInitial,
   };
 }
 

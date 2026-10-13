@@ -16,6 +16,25 @@ export interface DeviceGroup {
   devices: DeviceProfile[];
 }
 
+/** 工作区中保存的单个窗口快照 */
+export interface WindowSnapshot {
+  label: string;
+  incognito: boolean;
+  url: string;
+  deviceId: string;
+  orientation: Orientation;
+  history: string[];
+  historyIndex: number;
+}
+
+/** 工作区：一台设备上的整套窗口布局 */
+export interface Workspace {
+  id: string;
+  name: string;
+  savedAt: number;
+  windows: WindowSnapshot[];
+}
+
 export interface DeviceView {
   id: string;
   label: string;
