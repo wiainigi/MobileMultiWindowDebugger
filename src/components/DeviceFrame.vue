@@ -119,47 +119,47 @@ async function openExternal() {
 
 <style scoped>
 .device-frame {
+  /* 普通窗口：黑蓝配色 */
+  --frame-bg: #0c1422;
+  --frame-bg-active: #16243c;
+  --frame-screen: #04070d;
+  --frame-border: #223049;
+  --frame-border-hover: #3b4a6d;
+  --frame-glow: rgba(76, 141, 255, 0.55);
+  --frame-chrome: rgba(255, 255, 255, 0.04);
+  --frame-chrome-active: rgba(255, 255, 255, 0.075);
+
   position: relative;
   display: flex;
   flex-direction: column;
   flex: none;
-  border: 1px solid var(--border);
+  border: 1px solid var(--frame-border);
   border-radius: 16px;
-  background: var(--bg-2);
+  background: var(--frame-bg);
   box-shadow: 0 14px 32px rgba(2, 5, 12, 0.55);
   overflow: hidden;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: background 0.16s, border-color 0.16s, box-shadow 0.16s;
 }
 
-.device-frame::after {
-  content: "";
-  position: absolute;
-  inset: 0 0 auto;
-  height: 2px;
-  background: transparent;
-  transition: background 0.15s;
+/* 无痕窗口：黑紫配色 */
+.device-frame.incognito {
+  --frame-bg: #130e26;
+  --frame-bg-active: #241a46;
+  --frame-screen: #08050f;
+  --frame-border: #2b2148;
+  --frame-border-hover: #453571;
+  --frame-glow: rgba(124, 92, 255, 0.6);
 }
 
-.device-frame:hover {
-  border-color: #33415f;
+.device-frame:hover:not(.active) {
+  border-color: var(--frame-border-hover);
 }
 
+/* 活动窗口：同色系中更亮一档的底色 */
 .device-frame.active {
-  border-color: rgba(76, 141, 255, 0.7);
-  box-shadow: 0 0 0 1px rgba(76, 141, 255, 0.3), 0 18px 42px rgba(2, 5, 12, 0.68);
-}
-
-.device-frame.active::after {
-  background: linear-gradient(90deg, var(--accent), var(--accent-2));
-}
-
-.device-frame.incognito.active {
-  border-color: rgba(124, 92, 255, 0.75);
-  box-shadow: 0 0 0 1px rgba(124, 92, 255, 0.32), 0 18px 42px rgba(2, 5, 12, 0.68);
-}
-
-.device-frame.incognito.active::after {
-  background: linear-gradient(90deg, var(--accent-2), #b06bff);
+  background: var(--frame-bg-active);
+  border-color: var(--frame-glow);
+  box-shadow: 0 0 0 1px var(--frame-glow), 0 18px 42px rgba(2, 5, 12, 0.68);
 }
 
 .frame-header {
@@ -168,12 +168,12 @@ async function openExternal() {
   gap: 8px;
   height: 36px;
   padding: 0 8px;
-  background: var(--bg-3);
-  border-bottom: 1px solid var(--border);
+  background: var(--frame-chrome);
+  border-bottom: 1px solid var(--frame-border);
 }
 
-.incognito .frame-header {
-  background: linear-gradient(180deg, rgba(124, 92, 255, 0.2), rgba(124, 92, 255, 0.05));
+.active .frame-header {
+  background: var(--frame-chrome-active);
 }
 
 .index-badge {
@@ -278,7 +278,7 @@ async function openExternal() {
 .frame-viewport {
   position: relative;
   flex: none;
-  background: #05070b;
+  background: var(--frame-screen);
   overflow: hidden;
 }
 
@@ -306,10 +306,14 @@ async function openExternal() {
   gap: 6px;
   height: 26px;
   padding: 0 9px;
-  border-top: 1px solid var(--border);
-  background: var(--bg-3);
+  border-top: 1px solid var(--frame-border);
+  background: var(--frame-chrome);
   color: var(--fg-muted);
   font-size: 10.5px;
+}
+
+.active .frame-footer {
+  background: var(--frame-chrome-active);
 }
 
 .footer-dot {
