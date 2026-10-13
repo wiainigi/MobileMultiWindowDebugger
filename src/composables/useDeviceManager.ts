@@ -76,8 +76,6 @@ function createDeviceManager() {
       url,
       deviceId: options?.deviceId ?? activeView.value?.deviceId ?? DEFAULT_DEVICE_ID,
       orientation: options?.orientation ?? "portrait",
-      // 无痕窗口固定使用独立存储源，普通窗口与其所在站点共享存储
-      isolated: incognito,
       reloadToken: 0,
       history: [url],
       historyIndex: 0,

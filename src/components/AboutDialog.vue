@@ -22,7 +22,7 @@ onMounted(async () => {
       <h3>{{ appName }}</h3>
       <div class="version">v{{ appVersion }}</div>
       <ul class="tips">
-        <li>无痕窗口使用独立沙箱源，Cookie 与本地存储和其它窗口完全隔离；依赖本地存储的页面（部分 SPA）在无痕窗口中可能显示异常，可改用普通窗口打开。</li>
+        <li>无痕窗口经独立端口的本地代理加载，每个无痕窗口拥有完全独立的 Cookie 与本地存储，彼此之间、与普通窗口之间均不共享，关闭窗口即销毁会话。</li>
         <li>受 <code>X-Frame-Options</code> / <code>CSP</code> 限制的站点无法在页内嵌入，可用「↗」按钮在默认浏览器中打开。</li>
         <li>快捷键：Ctrl+Shift+N 无痕窗口 · Ctrl+N 窗口 · Ctrl+W 关闭 · Ctrl+R 刷新。</li>
       </ul>

@@ -1,3 +1,5 @@
+pub mod proxy;
+
 use std::time::Duration;
 
 const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
@@ -75,6 +77,22 @@ fn debug_log(message: String) {
     println!("[frontend] {message}");
 }
 
+/// 为无痕窗口启动独立端口的本地代理，返回本地端口；
+/// 该窗口的 origin 由此变为 http://127.0.0.1:{port}，获得完全独立的存储空间。
+#[tauri::command]
+async fn start_window_proxy(
+    origin: String,
+    state: tauri::State<'_, proxy::ProxyState>,
+) -> Result<u16, String> {
+    proxy::start(origin, state.inner()).await
+}
+
+/// 关闭窗口时释放对应代理
+#[tauri::command]
+fn stop_window_proxy(port: u16, state: tauri::State<'_, proxy::ProxyState>) {
+    state.stop(port);
+}
+
 #[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
@@ -84,7 +102,14 @@ fn greet(name: &str) -> String {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet, fetch_page_title, debug_log])
+        .manage(proxy::ProxyState::default())
+        .invoke_handler(tauri::generate_handler![
+            greet,
+            fetch_page_title,
+            debug_log,
+            start_window_proxy,
+            stop_window_proxy
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { invoke } from "@tauri-apps/api/core";
 import type { DeviceView } from "../types";
 import { DEVICE_GROUPS, findDevice } from "../constants/devices";
@@ -36,21 +36,92 @@ const screenStyle = computed(() => ({
 }));
 
 /**
- * 普通窗口授予 allow-same-origin，页面可与所在站点共享 Cookie / 本地存储；
- * 无痕窗口移除该权限，iframe 获得独立的不透明源，Cookie / localStorage 与其它窗口完全隔离，
- * 代价是访问本地存储会抛 SecurityError，依赖本地存储的页面可能无法正常渲染。
+ * 统一保留 allow-same-origin，页面才能正常读写自身存储；
+ * 无痕窗口的存储隔离改由「每窗口独立端口的本地代理」实现（见 renderUrl）。
  */
-const sandboxValue = computed(() => {
-  const permissions = [
-    "allow-scripts",
-    "allow-forms",
-    "allow-popups",
-    "allow-popups-to-escape-sandbox",
-    "allow-modals",
-    "allow-downloads",
-  ];
-  if (!props.view.isolated) permissions.push("allow-same-origin");
-  return permissions.join(" ");
+const SANDBOX = [
+  "allow-scripts",
+  "allow-same-origin",
+  "allow-forms",
+  "allow-popups",
+  "allow-popups-to-escape-sandbox",
+  "allow-modals",
+  "allow-downloads",
+].join(" ");
+
+const proxyPort = ref<number | null>(null);
+const proxyError = ref("");
+let proxyRequestId = 0;
+
+/** 无痕窗口需要被代理的目标 origin；普通窗口返回空串表示直连 */
+const targetOrigin = computed(() => {
+  if (!props.view.incognito) return "";
+  try {
+    const parsed = new URL(props.view.url);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return "";
+    return `${parsed.protocol}//${parsed.host}`;
+  } catch {
+    return "";
+  }
+});
+
+/**
+ * 实际加载地址：
+ * 普通窗口直连目标站点；无痕窗口经由本地独立端口代理，
+ * 页面 origin 变为 http://127.0.0.1:{port}，与其它所有窗口互不共享存储。
+ */
+const renderUrl = computed(() => {
+  if (!props.view.incognito) return props.view.url;
+  if (proxyPort.value === null) return "";
+  try {
+    const parsed = new URL(props.view.url);
+    return `http://127.0.0.1:${proxyPort.value}${parsed.pathname}${parsed.search}${parsed.hash}`;
+  } catch {
+    return "";
+  }
+});
+
+async function stopProxy() {
+  const port = proxyPort.value;
+  proxyPort.value = null;
+  if (port === null) return;
+  try {
+    await invoke("stop_window_proxy", { port });
+  } catch {
+    // 代理已随进程释放，忽略
+  }
+}
+
+watch(
+  targetOrigin,
+  async (origin) => {
+    const requestId = (proxyRequestId += 1);
+    if (!origin) {
+      await stopProxy();
+      proxyError.value = "";
+      return;
+    }
+    try {
+      const port = await invoke<number>("start_window_proxy", { origin });
+      if (requestId !== proxyRequestId) {
+        // 期间地址已变更，丢弃这次启动的代理
+        await invoke("stop_window_proxy", { port }).catch(() => undefined);
+        return;
+      }
+      await stopProxy();
+      proxyPort.value = port;
+      proxyError.value = "";
+      debugLog(`proxy ready ${origin} -> http://127.0.0.1:${port}`);
+    } catch (error) {
+      proxyError.value = error instanceof Error ? error.message : String(error);
+      debugLog(`proxy failed: ${proxyError.value}`);
+    }
+  },
+  { immediate: true },
+);
+
+onBeforeUnmount(() => {
+  void stopProxy();
 });
 
 
@@ -203,16 +274,20 @@ async function openExternal() {
     <div class="frame-viewport" :style="viewportStyle">
       <div class="frame-screen" :style="screenStyle">
         <iframe
+          v-if="renderUrl"
           ref="iframeRef"
-          :key="`${view.id}-${view.reloadToken}`"
+          :key="`${view.id}-${view.reloadToken}-${renderUrl}`"
           class="frame-iframe"
           :data-view-id="view.id"
-          :src="view.url"
-          :sandbox="sandboxValue"
+          :src="renderUrl"
+          :sandbox="SANDBOX"
           referrerpolicy="no-referrer-when-downgrade"
           allow="geolocation; camera; microphone; fullscreen; accelerometer; gyroscope; clipboard-write"
           @load="onIframeLoad"
         />
+        <div v-else class="frame-placeholder">
+          {{ proxyError ? `独立会话启动失败：${proxyError}` : "正在准备独立会话…" }}
+        </div>
       </div>
     </div>
 
@@ -412,6 +487,20 @@ async function openExternal() {
   height: 100%;
   border: none;
   background: #fff;
+}
+
+.frame-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: var(--frame-screen);
+  color: var(--fg-muted);
+  font-size: 12px;
+  line-height: 1.6;
+  text-align: center;
 }
 
 .frame-footer {
