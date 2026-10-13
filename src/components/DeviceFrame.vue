@@ -36,14 +36,24 @@ const screenStyle = computed(() => ({
 }));
 
 /**
- * 无痕窗口不授予 allow-same-origin，iframe 将获得独立的不透明源：
- * Cookie / localStorage / IndexedDB 与常规窗口完全隔离，关闭即销毁。
+ * 普通窗口授予 allow-same-origin，页面可与所在站点共享 Cookie / 本地存储；
+ * 无痕窗口移除该权限，iframe 获得独立的不透明源，Cookie / localStorage 与其它窗口完全隔离，
+ * 代价是访问本地存储会抛 SecurityError，依赖本地存储的页面可能无法正常渲染。
  */
-const sandboxValue = computed(() =>
-  props.view.incognito
-    ? "allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads"
-    : "allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads",
-);
+const sandboxValue = computed(() => {
+  const permissions = [
+    "allow-scripts",
+    "allow-forms",
+    "allow-popups",
+    "allow-popups-to-escape-sandbox",
+    "allow-modals",
+    "allow-downloads",
+  ];
+  if (!props.view.isolated) permissions.push("allow-same-origin");
+  return permissions.join(" ");
+});
+
+
 
 const iframeRef = ref<HTMLIFrameElement | null>(null);
 const documentTitle = ref("");
@@ -376,6 +386,8 @@ async function openExternal() {
   background: rgba(255, 92, 108, 0.16);
   color: #ff8b90;
 }
+
+
 
 .frame-viewport {
   position: relative;
