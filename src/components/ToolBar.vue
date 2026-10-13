@@ -21,16 +21,6 @@ function submit() {
   deviceManager.navigate(address.value, { applyAll: syncAll.value });
 }
 
-async function openExternal() {
-  const url = activeView.value?.url;
-  if (!url) return;
-  try {
-    const { openUrl } = await import("@tauri-apps/plugin-opener");
-    await openUrl(url);
-  } catch {
-    window.open(url, "_blank");
-  }
-}
 </script>
 
 <template>
@@ -57,15 +47,12 @@ async function openExternal() {
         <input v-model="syncAll" type="checkbox" />
         <span>同步全部</span>
       </label>
-      <button class="primary-btn" type="submit" :disabled="!activeView">前往</button>
+      <button class="go-btn" type="submit" :disabled="!activeView" title="前往">→</button>
     </form>
 
     <div class="tool-group">
       <button class="tool-btn" :disabled="!activeView" title="刷新所有窗口" @click="deviceManager.reloadAll()">
         全部重载
-      </button>
-      <button class="tool-btn" :disabled="!activeView" title="在默认浏览器中打开当前页面" @click="openExternal()">
-        系统浏览器
       </button>
     </div>
 
@@ -183,10 +170,38 @@ async function openExternal() {
   gap: 8px;
   min-width: 120px;
   height: 32px;
-  padding: 0 6px 0 8px;
+  padding: 0 3px 0 10px;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--bg-0);
+}
+
+.go-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  min-width: 36px;
+  height: 26px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.go-btn:hover:not(:disabled) {
+  background: #6aa1ff;
+}
+
+.go-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .address-bar:focus-within {
@@ -222,7 +237,6 @@ async function openExternal() {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding-right: 4px;
   color: var(--fg-muted);
   font-size: 11px;
   white-space: nowrap;

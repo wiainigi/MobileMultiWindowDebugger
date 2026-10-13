@@ -25,7 +25,7 @@ function createDeviceManager() {
   const views = ref<DeviceView[]>([]);
   const activeId = ref<string>("");
   const layout = ref<LayoutMode>("row");
-  const fitToStage = ref(true);
+  const fitToStage = ref(false);
   const address = ref(DEFAULT_URL);
   /** 由舞台计算并回写，用于状态栏展示当前缩放比例 */
   const stageScale = ref(1);
@@ -180,7 +180,7 @@ function createDeviceManager() {
   }
 
   function resetScale() {
-    fitToStage.value = true;
+    fitToStage.value = false;
     layout.value = "row";
   }
 

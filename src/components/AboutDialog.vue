@@ -71,18 +71,40 @@ h3 {
 
 .tips {
   margin: 16px 0 18px;
-  padding: 12px;
+  padding: 14px 16px;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--bg-0);
   text-align: left;
+  list-style: none;
 }
 
 .tips li {
-  margin: 6px 0;
+  position: relative;
+  margin: 9px 0;
+  padding-left: 16px;
   font-size: 12px;
-  line-height: 1.6;
+  line-height: 1.75;
   color: var(--fg-dim);
+}
+
+.tips li::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  left: 2px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.tips li:first-child {
+  margin-top: 0;
+}
+
+.tips li:last-child {
+  margin-bottom: 0;
 }
 
 code {
@@ -91,6 +113,7 @@ code {
   background: var(--bg-3);
   color: #b9d2ff;
   font-size: 11px;
+  white-space: nowrap;
 }
 
 .close-btn {
