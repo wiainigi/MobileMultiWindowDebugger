@@ -87,6 +87,20 @@ async fn start_window_proxy(
     proxy::start(origin, state.inner()).await
 }
 
+/// 打开 / 关闭开发者工具（iframe 无法拥有独立 DevTools 窗口，
+/// 因此打开的是承载全部调试窗口的 WebView 的 DevTools）；
+/// 返回打开后的状态。
+#[tauri::command]
+fn toggle_devtools(webview: tauri::Webview) -> bool {
+    if webview.is_devtools_open() {
+        webview.close_devtools();
+        false
+    } else {
+        webview.open_devtools();
+        true
+    }
+}
+
 /// 关闭窗口时释放对应代理
 #[tauri::command]
 fn stop_window_proxy(port: u16, state: tauri::State<'_, proxy::ProxyState>) {
@@ -108,7 +122,8 @@ pub fn run() {
             fetch_page_title,
             debug_log,
             start_window_proxy,
-            stop_window_proxy
+            stop_window_proxy,
+            toggle_devtools
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

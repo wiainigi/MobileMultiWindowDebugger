@@ -233,6 +233,17 @@ function reload() {
   emit("update", { reloadToken: props.view.reloadToken + 1 });
 }
 
+const devtoolsOpen = ref(false);
+
+/** 打开承载各调试窗口的 WebView 的开发者工具（再点一次关闭） */
+async function toggleDevtools() {
+  try {
+    devtoolsOpen.value = await invoke<boolean>("toggle_devtools");
+  } catch (error) {
+    debugLog(`devtools failed: ${String(error)}`);
+  }
+}
+
 async function openExternal() {
   try {
     const { openUrl } = await import("@tauri-apps/plugin-opener");
@@ -273,6 +284,15 @@ async function openExternal() {
         <div class="header-right">
           <button class="icon-btn" title="旋转屏幕" @mousedown.stop="emit('activate')" @click="toggleOrientation">⟲</button>
           <button class="icon-btn" title="刷新" @mousedown.stop="emit('activate')" @click="reload">⟳</button>
+          <button
+            class="icon-btn console-btn"
+            :class="{ on: devtoolsOpen }"
+            :title="`开发者工具（在 Console 左上角的上下文选择器中切换到「${view.label}」frame；再次点击关闭）`"
+            @mousedown.stop="emit('activate')"
+            @click="toggleDevtools"
+          >
+            &gt;_
+          </button>
           <button class="icon-btn" title="在默认浏览器中打开" @mousedown.stop="emit('activate')" @click="openExternal">↗</button>
           <button class="icon-btn danger" title="关闭" @mousedown.stop="emit('activate')" @click="emit('close')">✕</button>
         </div>
@@ -286,6 +306,7 @@ async function openExternal() {
           ref="iframeRef"
           :key="`${view.id}-${view.reloadToken}-${renderUrl}`"
           class="frame-iframe"
+          :name="view.label"
           :data-view-id="view.id"
           :src="renderUrl"
           :sandbox="SANDBOX"
@@ -468,6 +489,21 @@ async function openExternal() {
 .icon-btn.danger:hover {
   background: rgba(255, 92, 108, 0.16);
   color: #ff8b90;
+}
+
+.console-btn {
+  width: auto;
+  min-width: 22px;
+  padding: 0 4px;
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.console-btn.on {
+  background: rgba(76, 141, 255, 0.2);
+  color: #b9d2ff;
 }
 
 

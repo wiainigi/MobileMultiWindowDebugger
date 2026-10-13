@@ -55,10 +55,42 @@ function toggleWorkspaceMenu() {
   namingOpen.value = false;
 }
 
-function openWorkspace(id: string, name: string) {
+/** 待确认的破坏性操作：当前已有窗口时会先让用户确认 */
+type PendingAction = { kind: "open"; id: string; name: string } | { kind: "new" };
+
+const pendingAction = ref<PendingAction | null>(null);
+
+const pendingTitle = computed(() => (pendingAction.value?.kind === "open" ? "载入工作区" : "新建工作区"));
+const pendingConfirmText = computed(() => (pendingAction.value?.kind === "open" ? "确定载入" : "确定新建"));
+const pendingWorkspaceName = computed(() => {
+  const pending = pendingAction.value;
+  return pending?.kind === "open" ? pending.name : "";
+});
+
+function applyWorkspace(id: string, name: string) {
   workspaceManager.open(id);
-  workspaceMenuOpen.value = false;
   flash(`已载入「${name}」`);
+}
+
+function openWorkspace(id: string, name: string) {
+  workspaceMenuOpen.value = false;
+  // 已存在打开的窗口时，载入会覆盖当前布局，先确认避免丢失未保存的工作
+  if (deviceManager.views.value.length > 0) {
+    pendingAction.value = { kind: "open", id, name };
+    return;
+  }
+  applyWorkspace(id, name);
+}
+
+function confirmPendingAction() {
+  const pending = pendingAction.value;
+  if (!pending) return;
+  pendingAction.value = null;
+  if (pending.kind === "open") {
+    applyWorkspace(pending.id, pending.name);
+  } else {
+    runNewWorkspace();
+  }
 }
 
 function removeWorkspace(id: string, name: string) {
@@ -85,11 +117,20 @@ function confirmSaveWorkspace() {
   flash(`已保存「${created.name}」`);
 }
 
+function runNewWorkspace() {
+  workspaceManager.startNew();
+  flash("已新建工作区");
+}
+
 function startNewWorkspace() {
   workspaceMenuOpen.value = false;
   namingOpen.value = false;
-  workspaceManager.startNew();
-  flash("已新建工作区");
+  // 新建会清空当前窗口，同样先确认
+  if (deviceManager.views.value.length > 0) {
+    pendingAction.value = { kind: "new" };
+    return;
+  }
+  runNewWorkspace();
 }
 
 function formatSavedAt(timestamp: number) {
@@ -283,6 +324,25 @@ const menus = computed<{ id: MenuId; label: string; items: MenuItem[] }[]>(() =>
             <button class="ws-btn" @click="namingOpen = false">取消</button>
             <button class="ws-btn primary" :disabled="!workspaceName" @click="confirmSaveWorkspace">保存</button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="pendingAction" class="confirm-mask" @click.self="pendingAction = null">
+      <div class="confirm-dialog">
+        <div class="confirm-title">{{ pendingTitle }}</div>
+        <p class="confirm-text">
+          <template v-if="pendingWorkspaceName">
+            载入「<strong>{{ pendingWorkspaceName }}</strong
+            >」将替换当前 {{ viewCount }} 个窗口，未保存的窗口布局与改动会丢失。
+          </template>
+          <template v-else>
+            新建工作区将关闭当前 {{ viewCount }} 个窗口，未保存的窗口布局与改动会丢失。
+          </template>
+        </p>
+        <div class="confirm-actions">
+          <button class="ws-btn" @click="pendingAction = null">取消</button>
+          <button class="ws-btn primary" @click="confirmPendingAction">{{ pendingConfirmText }}</button>
         </div>
       </div>
     </div>
@@ -601,5 +661,50 @@ const menus = computed<{ id: MenuId; label: string; items: MenuItem[] }[]>(() =>
   justify-content: flex-end;
   gap: 6px;
   margin-top: 9px;
+}
+
+.confirm-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(5, 8, 14, 0.62);
+  backdrop-filter: blur(3px);
+}
+
+.confirm-dialog {
+  width: 360px;
+  max-width: calc(100vw - 40px);
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg-2);
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.5);
+}
+
+.confirm-title {
+  margin-bottom: 10px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.confirm-text {
+  margin: 0 0 16px;
+  color: var(--fg-dim);
+  font-size: 12.5px;
+  line-height: 1.75;
+}
+
+.confirm-text strong {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 </style>
