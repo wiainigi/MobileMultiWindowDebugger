@@ -112,11 +112,35 @@ fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
 }
 
+/// 注入到 webview 内所有 frame（含跨源 iframe）的脚本：
+/// 屏蔽浏览器原生右键菜单。
+const DISABLE_CONTEXT_MENU: &str = r#"
+document.addEventListener('contextmenu', function (event) {
+  event.preventDefault();
+}, true);
+"#;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .manage(proxy::ProxyState::default())
+        .setup(|app| {
+            // 显式指定窗口图标（标题栏 / 任务栏），不依赖从 exe 图标资源读取
+            let window_icon = tauri::image::Image::from_bytes(include_bytes!("../icons/icon-window.png"))?;
+
+            // 主窗口在 Rust 侧创建，以便注入初始化脚本（tauri.conf.json 中的窗口无法注入）
+            tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()))
+                .title("MobileMultiWindowDebugger")
+                .icon(window_icon)?
+                .inner_size(1440.0, 900.0)
+                .min_inner_size(1024.0, 640.0)
+                .center()
+                .disable_drag_drop_handler()
+                .initialization_script(DISABLE_CONTEXT_MENU)
+                .build()?;
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             greet,
             fetch_page_title,
